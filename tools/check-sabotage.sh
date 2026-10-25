@@ -59,7 +59,7 @@ insert_before_tests() {
 sabotage_fmt() { insert_before_tests 'pub fn badly_formatted( ) {}
 '; }
 sabotage_clippy() { insert_before_tests '/// clippy の ptr_arg に当たる。
-pub fn ptr_arg(s: &String) -> usize {
+pub fn ptr_arg(s: &alloc::string::String) -> usize {
     s.len()
 }
 '; }
