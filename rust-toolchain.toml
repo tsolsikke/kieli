@@ -1,0 +1,6 @@
+[toolchain]
+# Seinas と同じ版にそろえる。
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
+# x86_64-unknown-none は、kieli-core が std なしでビルドできることを確かめるためのもの(tools/check.sh)。
+targets = ["x86_64-unknown-none"]

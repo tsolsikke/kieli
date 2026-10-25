@@ -1,0 +1,4 @@
+# kieli-core が依存してよい crate の一覧(1 行に 1 つ、crate の名前だけ)。
+# tools/check.sh が、cargo tree で見た kieli-core の依存(通常とビルドの依存)と比べる。
+# 足すときは、no_std で使えること、Wayland・OS・描画の crate でないことを確かめてから書く。
+# 今は依存なし。

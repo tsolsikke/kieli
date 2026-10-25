@@ -1,0 +1,12 @@
+[package]
+name = "kieli-core"
+description = "Kieli の変換の規則と、入力セッションの状態(no_std + alloc)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# 依存を足すときは、tools/core-deps.allow にも書く(tools/check.sh が見張る)。
+# Wayland・OS・描画の crate は足さない(CLAUDE.md の「kieli-core の境目」)。
+[dependencies]

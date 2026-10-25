@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: 検査(tools/check.sh)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # rust-toolchain.toml の版と、そこに書いた component と target(x86_64-unknown-none)を入れる。
+      - name: Rustを入れる(rust-toolchain.tomlのバージョン)
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: 検査
+        run: tools/check.sh
+      - name: 検査が壊したときに落ちること
+        run: tools/check-sabotage.sh
