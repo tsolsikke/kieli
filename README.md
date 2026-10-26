@@ -32,7 +32,7 @@ Rust の版は `rust-toolchain.toml` で固定しています(Seinas と同じ 1
 cargo build
 ```
 
-kieli-cli は、標準入力から 1 行ずつ読み、1 つの入力ごとに結果を 1 行で出します(書き方は `docs/design.md` の 10)。
+kieli-cli は、標準入力から 1 行ずつ読み、1 つの入力ごとに結果を 1 行で出します(書き方は `docs/design.md` の 10)。見本の入力と、試す手順は `docs/try-kieli-cli.md` にあります。第 1 段階の完了条件と、それぞれを何で確かめたかは `docs/stage1-acceptance.md` にあります。
 
 ```bash
 echo '<Hiragana> "nihongo" <Enter>' | cargo run -q -p kieli-cli
