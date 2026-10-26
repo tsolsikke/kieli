@@ -4,7 +4,7 @@ Kieli は、Rust で作る日本語 IME です。既存の IME(Anthy など)の�
 
 ## 今の段階
 
-第 1 段階の途中です。リポジトリの骨組みと、設計文書の案(`docs/design.md`)があります。変換はまだ動きません。
+第 1 段階の途中です。kieli-core で、ローマ字からひらがなへの変換と、編集・確定・取消が動きます(かな漢字変換はまだ無い)。kieli-cli で、1 行ずつ読む形で試せます。設計は `docs/design.md` にあります。
 
 | 段階 | 内容 | 判定 |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Kieli は、Rust で作る日本語 IME です。既存の IME(Anthy など)の�
 | crate | 役割 |
 | --- | --- |
 | `crates/kieli-core` | 変換の規則と、入力セッションの状態。`no_std` + `alloc`。Wayland・fd・serial・COM・描画・OS 固有のキーコードを持ち込まない |
-| `crates/kieli-cli` | kieli-core の最初の利用者。ホストの端末で動かして試す |
+| `crates/kieli-cli` | kieli-core の最初の利用者。ホストの端末で、1 行ずつ読む形で試す |
 | `kieli-wayland`(第 2 段階で足す) | 別のプロセスの IME として、標準の input-method-v2 と virtual-keyboard-v1 でコンポジタにつなぐ。Kieli 専用のプロトコルは作らない |
 
 ほかの OS には、kieli-core の上に OS ごとの接続層を作ります(将来の Windows 11 の TSF など)。
@@ -30,7 +30,12 @@ Rust の版は `rust-toolchain.toml` で固定しています(Seinas と同じ 1
 
 ```bash
 cargo build
-cargo run -p kieli-cli
+```
+
+kieli-cli は、標準入力から 1 行ずつ読み、1 つの入力ごとに結果を 1 行で出します(書き方は `docs/design.md` の 10)。
+
+```bash
+echo '<Hiragana> "nihongo" <Enter>' | cargo run -q -p kieli-cli
 ```
 
 検査は、次の 1 つのコマンドでまとめて回せます。CI も同じものを使います。
