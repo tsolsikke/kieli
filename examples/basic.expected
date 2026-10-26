@@ -1,0 +1,164 @@
+# kieli-cli の見本。上限を 15 バイト(ひらがなで 5 文字)にして流す(docs/try-kieli-cli.md)。
+# 1. 起動したときは直接入力のモード。文字はアプリへ渡す(渡した)。
+# 入力: "a"
+渡した	consumed=no	commit=""	preedit=""	mode=直接入力	field=normal
+# 2. ひらがなのモードにする(モード)。今と同じモードのキーは、何もしない(何もしなかった)。
+# 入力: <Hiragana> <Hiragana>
+モード	consumed=yes	commit=""	preedit=""	mode=ひらがな	field=normal
+何もしなかった	consumed=yes	commit=""	preedit=""	mode=ひらがな	field=normal
+# 3. ひらがな:kana は かな。Enter で確定する(確定)。
+# 入力: "kana" <Enter>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="かｎ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="かな"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="かな"	preedit=""	mode=ひらがな	field=normal
+# 4. ん:nn と n' は ん。n の後に子音が来たら ん。確定のときの末尾の n も ん。
+# 入力: "nn" "n'a" <Enter>
+更新	consumed=yes	commit=""	preedit="ｎ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ん"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="んｎ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="んん"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="んんあ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="んんあ"	preedit=""	mode=ひらがな	field=normal
+# 入力: "kanji" <Enter>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="かｎ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="かんｊ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="かんじ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="かんじ"	preedit=""	mode=ひらがな	field=normal
+# 入力: "hon" <Enter>
+更新	consumed=yes	commit=""	preedit="ｈ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ほ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ほｎ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="ほん"	preedit=""	mode=ひらがな	field=normal
+# 5. 促音:子音を重ねると っ。tch も っ。
+# 入力: "kitte" <Enter>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="き"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きｔ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きっｔ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きって"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="きって"	preedit=""	mode=ひらがな	field=normal
+# 入力: "matcha" <Enter>
+更新	consumed=yes	commit=""	preedit="ｍ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ま"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="まｔ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="まｔｃ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="まっｃｈ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="まっちゃ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="まっちゃ"	preedit=""	mode=ひらがな	field=normal
+# 6. 小書き:x の形と l の形の両方。xka はカタカナの ヵ。
+# 入力: "xa" "li" "xtu" "lya" <Enter>
+更新	consumed=yes	commit=""	preedit="ｘ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁｌ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃｘ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃｘｔ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃっ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃっｌ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃっｌｙ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ぁぃっゃ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="ぁぃっゃ"	preedit=""	mode=ひらがな	field=normal
+# 入力: "xka" <Enter>
+更新	consumed=yes	commit=""	preedit="ｘ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ｘｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ヵ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="ヵ"	preedit=""	mode=ひらがな	field=normal
+# 7. 記号:[ ] - , . は 「 」 ー 、 。。
+# 入力: "[a]" <Enter>
+更新	consumed=yes	commit=""	preedit="「"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="「あ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="「あ」"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="「あ」"	preedit=""	mode=ひらがな	field=normal
+# 入力: "a-,." <Enter>
+更新	consumed=yes	commit=""	preedit="あ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あー"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あー、"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あー、。"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="あー、。"	preedit=""	mode=ひらがな	field=normal
+# 8. 大文字・数字・ほかの記号は、打ったまま全角で残す。
+# 入力: "A1!" <Enter>
+更新	consumed=yes	commit=""	preedit="Ａ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="Ａ１"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="Ａ１！"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="Ａ１！"	preedit=""	mode=ひらがな	field=normal
+# 9. 未定義の綴り:先頭の 1 文字を英字のまま残し、残りを照らし直す。
+# 入力: "qza" <Enter>
+更新	consumed=yes	commit=""	preedit="ｑ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ｑｚ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ｑざ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="ｑざ"	preedit=""	mode=ひらがな	field=normal
+# 10. Backspace:保留のローマ字があればその最後の 1 文字、無ければ表示の最後の 1 文字を消す。
+# 入力: "kya" <BS> "ky" <BS> <BS> <BS>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="ｋｙ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きゃ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="き"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きｋｙ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="きｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="き"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit=""	mode=ひらがな	field=normal
+# 11. Esc:未確定文字を全部捨てる(取消)。
+# 入力: "sakana" <Esc>
+更新	consumed=yes	commit=""	preedit="ｓ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="さ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="さｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="さか"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="さかｎ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="さかな"	mode=ひらがな	field=normal
+取消	consumed=yes	commit=""	preedit=""	mode=ひらがな	field=normal
+# 12. 未確定文字があるときの Space と F7 は変換のキー、左右と上下も取っておく(未対応)。未確定文字は残る。
+# 入力: "ka" <Space> <F7> <Left> <Up> <Enter>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+未対応(変換)	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+未対応(変換)	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+未対応(カーソル)	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+未対応(候補)	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="か"	preedit=""	mode=ひらがな	field=normal
+# 13. 未確定文字が無いときの Space は、全角の空白を確定する。
+# 入力: <Space>
+確定	consumed=yes	commit="\u{3000}"	preedit=""	mode=ひらがな	field=normal
+# 14. Kieli が使わないキー(Ctrl+s)は、確定してからアプリへ渡す(consumed=no)。
+# 入力: "ka" <Ctrl+s>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+確定	consumed=no	commit="か"	preedit=""	mode=ひらがな	field=normal
+# 15. モードの切り替え:未確定文字があれば確定してから切り替える。直接入力のモードでは文字を渡す。
+# 入力: "ka" <Toggle> "a" <Toggle>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+モード	consumed=yes	commit="か"	preedit=""	mode=直接入力	field=normal
+渡した	consumed=no	commit=""	preedit=""	mode=直接入力	field=normal
+モード	consumed=yes	commit=""	preedit=""	mode=ひらがな	field=normal
+# 16. 直接入力の欄:パスワードの欄に移ると、未確定文字を確定せずに捨て、キーを渡す。ふつうの欄に戻ると元のモード。
+# 入力: "ka" <Field:password> "pw" <Field:normal> "a" <Enter>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+欄を変えた	preedit=""	mode=ひらがな	field=password
+渡した	consumed=no	commit=""	preedit=""	mode=ひらがな	field=password
+渡した	consumed=no	commit=""	preedit=""	mode=ひらがな	field=password
+欄を変えた	preedit=""	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="あ"	preedit=""	mode=ひらがな	field=normal
+# 17. 入力先を失う:未確定文字を取り消し、モードは保つ。
+# 入力: "ka" <Leave> "a" <Enter>
+更新	consumed=yes	commit=""	preedit="ｋ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="か"	mode=ひらがな	field=normal
+入力先を失った	preedit=""	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="あ"	preedit=""	mode=ひらがな	field=normal
+# 18. 上限を越える:あいうえお(15 バイト)の後の k は受け付けない(上限を越えた)。Backspace は使える。
+# 入力: "aiueok" <BS> <Enter>
+更新	consumed=yes	commit=""	preedit="あ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あい"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あいう"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あいうえ"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あいうえお"	mode=ひらがな	field=normal
+上限を越えた	consumed=yes	commit=""	preedit="あいうえお"	mode=ひらがな	field=normal
+更新	consumed=yes	commit=""	preedit="あいうえ"	mode=ひらがな	field=normal
+確定	consumed=yes	commit="あいうえ"	preedit=""	mode=ひらがな	field=normal

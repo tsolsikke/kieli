@@ -176,6 +176,7 @@ fn special(word: &str) -> Option<Token> {
 pub struct Cli {
     session: Session,
     field: FieldKind,
+    max_preedit_bytes: usize,
 }
 
 impl Default for Cli {
@@ -185,11 +186,20 @@ impl Default for Cli {
 }
 
 impl Cli {
-    /// 起動したときの状態(直接入力のモード、ふつうの欄)。
+    /// 起動したときの状態(直接入力のモード、ふつうの欄、上限は既定の値)。
     pub fn new() -> Self {
+        Self::with_max_preedit_bytes(Config::default().max_preedit_bytes)
+    }
+
+    /// 未確定文字の長さの上限(UTF-8 のバイト数)を変えて作る。
+    pub fn with_max_preedit_bytes(max_preedit_bytes: usize) -> Self {
         Self {
-            session: Session::new(Config::default()),
+            session: Session::new(Config {
+                max_preedit_bytes,
+                ..Config::default()
+            }),
             field: FieldKind::Normal,
+            max_preedit_bytes,
         }
     }
 
@@ -214,7 +224,7 @@ impl Cli {
                 self.session.cancel();
                 self.session = Session::new(Config {
                     mode: self.session.mode(),
-                    ..Config::default()
+                    max_preedit_bytes: self.max_preedit_bytes,
                 });
                 self.field = FieldKind::Normal;
                 format!("入力先を失った\t{}", self.state())
