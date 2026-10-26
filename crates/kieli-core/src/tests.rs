@@ -48,7 +48,7 @@ fn type_chars(session: &mut Session, text: &str) {
     }
 }
 
-const RESERVED_KEYS: [(Event, Feature); 8] = [
+const RESERVED_KEYS: [(Event, Feature); 16] = [
     (Event::Space, Feature::Conversion),
     (Event::Left, Feature::CursorMovement),
     (Event::Right, Feature::CursorMovement),
@@ -57,6 +57,27 @@ const RESERVED_KEYS: [(Event, Feature); 8] = [
     (Event::Up, Feature::CandidateOperation),
     (Event::Down, Feature::CandidateOperation),
     (Event::Tab, Feature::CandidateOperation),
+    (Event::Delete, Feature::CursorMovement),
+    (Event::PageUp, Feature::CandidateOperation),
+    (Event::PageDown, Feature::CandidateOperation),
+    (Event::Function(6), Feature::Conversion),
+    (Event::Function(7), Feature::Conversion),
+    (Event::Function(8), Feature::Conversion),
+    (Event::Function(9), Feature::Conversion),
+    (Event::Function(10), Feature::Conversion),
+];
+
+/// 取っておかないファンクションキー(Kieli が使わないキーと同じに扱う)。
+const UNUSED_FUNCTION_KEYS: [Event; 9] = [
+    Event::Function(1),
+    Event::Function(2),
+    Event::Function(3),
+    Event::Function(4),
+    Event::Function(5),
+    Event::Function(11),
+    Event::Function(12),
+    Event::Function(13),
+    Event::Function(24),
 ];
 
 // ---- 起動したとき
@@ -85,6 +106,11 @@ fn keys_without_a_preedit_go_to_the_application() {
             Event::Up,
             Event::Down,
             Event::Tab,
+            Event::Delete,
+            Event::PageUp,
+            Event::PageDown,
+            Event::Function(1),
+            Event::Function(6),
             Event::Other,
             Event::Char('\t'),
         ] {
@@ -186,8 +212,9 @@ fn escape_cancels_the_preedit() {
 
 #[test]
 fn reserved_keys_keep_the_preedit_and_report_unsupported() {
-    // 決定:Space はかな漢字変換、左右・Home・End は未確定文字の中を動くキー、上下・Tab は変換・候補の
-    // 操作のキーとして取っておき、初版は「未対応」を返して未確定文字を残す(設計文書の 2.3)。
+    // 決定:Space と F6〜F10 は変換のキー、左右・Home・End・Delete は未確定文字の中を動く・編集するキー、
+    // 上下・Tab・PageUp・PageDown は変換・候補の操作のキーとして取っておき、初版は「未対応」を返して
+    // 未確定文字を残す(設計文書の 2.3)。
     for (event, feature) in RESERVED_KEYS {
         let mut session = hiragana();
         type_chars(&mut session, "a");
@@ -209,6 +236,21 @@ fn an_unused_key_commits_and_goes_to_the_application() {
         session.handle(Event::Other),
         outcome(OutcomeKind::Committed, false, "ａ", "")
     );
+}
+
+#[test]
+fn other_function_keys_are_treated_as_unused_keys() {
+    // 決定:F1〜F5・F11・F12 と、それ以外のファンクションキーは、Kieli が使わないキーと同じに扱う
+    // (設計文書の 2.3)。
+    for event in UNUSED_FUNCTION_KEYS {
+        let mut session = hiragana();
+        type_chars(&mut session, "a");
+        assert_eq!(
+            session.handle(event),
+            outcome(OutcomeKind::Committed, false, "ａ", ""),
+            "{event:?}"
+        );
+    }
 }
 
 #[test]
@@ -275,10 +317,32 @@ fn mode_keys_are_consumed_without_a_preedit() {
     let changed = outcome(OutcomeKind::ModeChanged, true, "", "");
     assert_eq!(session.handle(Event::ToggleMode), changed);
     assert_eq!(session.mode(), InputMode::Direct);
-    assert_eq!(session.handle(Event::SetMode(InputMode::Direct)), changed);
-    assert_eq!(session.mode(), InputMode::Direct);
     assert_eq!(session.handle(Event::SetMode(InputMode::Hiragana)), changed);
     assert_eq!(session.mode(), InputMode::Hiragana);
+    assert_eq!(session.handle(Event::SetMode(InputMode::Direct)), changed);
+    assert_eq!(session.mode(), InputMode::Direct);
+}
+
+#[test]
+fn a_mode_key_for_the_current_mode_is_consumed_and_changes_nothing() {
+    // 決定:今と同じモードを指すモードのキーは、消費して何もしない(確定しない、状態を変えない)。
+    // 未確定文字が無いときも同じ(設計文書の 2.3)。
+    let mut composing = hiragana();
+    type_chars(&mut composing, "a");
+    for mut session in [composing, hiragana()] {
+        let before = session.clone();
+        let preedit = String::from(before.preedit().text());
+        assert_eq!(
+            session.handle(Event::SetMode(InputMode::Hiragana)),
+            outcome(OutcomeKind::Ignored, true, "", &preedit)
+        );
+        assert_eq!(session, before);
+    }
+    let mut session = direct();
+    assert_eq!(
+        session.handle(Event::SetMode(InputMode::Direct)),
+        outcome(OutcomeKind::Ignored, true, "", "")
+    );
 }
 
 #[test]
@@ -331,6 +395,8 @@ fn entering_a_direct_field_does_not_commit_the_preedit() {
 
 #[test]
 fn mode_keys_in_a_direct_field_change_only_the_chosen_mode() {
+    // 決定:直接入力の欄の中のモードのキーは、消費して mode() だけを変える。effective_mode() は Direct の
+    // まま(設計文書の 6)。
     let mut session = hiragana();
     session.set_direct_field(true);
     assert_eq!(
@@ -406,8 +472,8 @@ enum Step {
     Commit,
 }
 
-/// 並びを作る手順。キーは `Event` の形を全部入れ、文字は全角になる英字・かな・制御文字を入れる。
-const STEPS: [Step; 22] = [
+/// 並びを作る手順。キーは `Event` の形を全部入れ(ファンクションキーは代表だけ)、文字は全角になる英字・かな・制御文字を入れる。
+const STEPS: [Step; 27] = [
     Step::Key(Event::Char('a')),
     Step::Key(Event::Char('あ')),
     Step::Key(Event::Char('\t')),
@@ -425,6 +491,12 @@ const STEPS: [Step; 22] = [
     Step::Key(Event::ToggleMode),
     Step::Key(Event::SetMode(InputMode::Hiragana)),
     Step::Key(Event::SetMode(InputMode::Direct)),
+    Step::Key(Event::Delete),
+    Step::Key(Event::PageUp),
+    Step::Key(Event::PageDown),
+    // ファンクションキーは、取っておく番号と、取っておかない番号の代表を 1 つずつ。
+    Step::Key(Event::Function(6)),
+    Step::Key(Event::Function(1)),
     Step::Key(Event::Other),
     Step::DirectField(true),
     Step::DirectField(false),
@@ -456,7 +528,10 @@ fn check_key(session: &Session, event: Event, max_preedit_bytes: usize) -> Sessi
     }
 
     match result.kind {
-        OutcomeKind::Passed | OutcomeKind::Unsupported(_) | OutcomeKind::OverLimit => {
+        OutcomeKind::Passed
+        | OutcomeKind::Ignored
+        | OutcomeKind::Unsupported(_)
+        | OutcomeKind::OverLimit => {
             assert!(result.commit.is_empty());
             assert_eq!(
                 next, before,
@@ -512,10 +587,11 @@ fn check_all_sequences(start: &Session, max_preedit_bytes: usize, depth: usize) 
 
 /// 並びの長さ。
 ///
-/// 長さごとの時間(2026-10-25 に測った。debug ビルド、1 コア):長さ 4 で約 0.15 秒、長さ 5 で約 3 秒。
-/// 長さ 6 は、手順の種類の 22 倍で、約 1 分になる見込み(推測)。1 回の cargo test が 5 秒ほどに収まる
-/// いちばん長い 5 にした。長さ 5 あれば、上限まで文字を入れ(2 手)、越える文字を入れ(1 手)、
-/// その後にキーを入れる(1 手)並びに、直接入力の欄の出入りを 1 つ挟む形まで試せる。
+/// 長さ 5 あれば、上限まで文字を入れ(2 手)、越える文字を入れ(1 手)、その後にキーを入れる(1 手)並びに、
+/// 直接入力の欄の出入りを 1 つ挟む形まで試せる。
+///
+/// 時間(debug ビルド、1 コア):手順が 22 種類のとき(2026-10-25)は約 3 秒。27 種類に増やした後
+/// (2026-10-26)は、cargo test の全体で 8.96〜10.40 秒(3 回)。長さ 6 は、その 27 倍になる見込み(推測)。
 const DEPTH: usize = 5;
 
 #[test]
@@ -526,9 +602,9 @@ fn would_consume_and_handle_agree_on_every_short_sequence() {
             mode,
             max_preedit_bytes: 7,
         });
-        // 並びの長さが 1〜5 で、手順が 22 種類(うちキーのイベントが 18 種類)。
-        // 長さ k の並びの最後の手順がキーのイベントになる数は 18 × 22^(k-1) なので、
-        // 18 × (1 + 22 + 22^2 + 22^3 + 22^4) = 4,417,398。
-        assert_eq!(check_all_sequences(&start, 7, DEPTH), 4_417_398);
+        // 並びの長さが 1〜5 で、手順が 27 種類(うちキーのイベントが 23 種類)。
+        // 長さ k の並びの最後の手順がキーのイベントになる数は 23 × 27^(k-1) なので、
+        // 23 × (1 + 27 + 27^2 + 27^3 + 27^4) = 12,693,263。
+        assert_eq!(check_all_sequences(&start, 7, DEPTH), 12_693_263);
     }
 }

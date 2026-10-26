@@ -38,11 +38,11 @@ impl Default for Config {
 /// 取っておいたキーが、後の段階で受け持つ機能。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Feature {
-    /// かな漢字変換(Space)。
+    /// かな漢字変換と、文字の種類の変換(Space、F6〜F10)。
     Conversion,
-    /// 未確定文字の中を動く(左右・Home・End)。
+    /// 未確定文字の中を動く・編集する(左右・Home・End・Delete)。
     CursorMovement,
-    /// 変換・候補の操作(上下・Tab)。
+    /// 変換・候補の操作(上下・Tab・PageUp・PageDown)。
     CandidateOperation,
 }
 
@@ -57,6 +57,8 @@ pub enum OutcomeKind {
     Committed,
     /// 未確定文字を捨てた。
     Canceled,
+    /// キーを消費したが、何も変えなかった(今と同じモードを指すモードのキー)。
+    Ignored,
     /// 入力モードを変えた。未確定文字があったときは、確定してから変えている(`commit` に入る)。
     ModeChanged,
     /// 後の段階で使うキーで、まだ機能が無い。未確定文字は変えない。
@@ -139,6 +141,8 @@ enum Action {
     CommitText(char),
     /// 未確定文字を確定してから、入力モードを変える。
     SwitchMode(InputMode),
+    /// 消費して何もしない。
+    Ignore,
     /// 取っておいたキー。何もしない。
     Unsupported(Feature),
     /// 上限を越えるので、受け付けない。
@@ -158,6 +162,7 @@ impl Action {
                 OutcomeKind::Committed
             }
             Self::CancelPreedit => OutcomeKind::Canceled,
+            Self::Ignore => OutcomeKind::Ignored,
             Self::SwitchMode(_) => OutcomeKind::ModeChanged,
             Self::Unsupported(feature) => OutcomeKind::Unsupported(feature),
             Self::Refuse => OutcomeKind::OverLimit,
@@ -263,6 +268,9 @@ impl Session {
     fn plan(&self, event: &Event) -> Action {
         match *event {
             Event::ToggleMode => return Action::SwitchMode(self.mode.toggled()),
+            // 今と同じモードを指すキーは、消費して何もしない。ひらがなのキーを押しただけで確定すると、
+            // 変換の機会を失うため(設計文書の 2.3)。未確定文字が無いときも同じに扱う。
+            Event::SetMode(mode) if mode == self.mode => return Action::Ignore,
             Event::SetMode(mode) => return Action::SwitchMode(mode),
             _ => {}
         }
@@ -273,15 +281,16 @@ impl Session {
                 Event::Commit => Action::CommitPreedit,
                 Event::Cancel => Action::CancelPreedit,
                 Event::Space => Action::Unsupported(Feature::Conversion),
-                Event::Left | Event::Right | Event::Home | Event::End => {
+                Event::Function(6..=10) => Action::Unsupported(Feature::Conversion),
+                Event::Left | Event::Right | Event::Home | Event::End | Event::Delete => {
                     Action::Unsupported(Feature::CursorMovement)
                 }
-                Event::Up | Event::Down | Event::Tab => {
+                Event::Up | Event::Down | Event::Tab | Event::PageUp | Event::PageDown => {
                     Action::Unsupported(Feature::CandidateOperation)
                 }
                 // Kieli が使わないキーは、確定してからアプリへ渡す。アプリでの順番と編集の結果は、
                 // Seinas との統合で確かめる(設計文書の 2.3)。
-                Event::Char(_) | Event::Other => Action::CommitThenPass,
+                Event::Char(_) | Event::Function(_) | Event::Other => Action::CommitThenPass,
                 Event::ToggleMode | Event::SetMode(_) => unreachable!("上で扱った"),
             }
         } else if self.effective_mode() == InputMode::Hiragana {
@@ -310,7 +319,9 @@ impl Session {
     /// 決めたことを行い、確定した文字を返す。
     fn apply(&mut self, action: Action) -> String {
         match action {
-            Action::Pass | Action::Unsupported(_) | Action::Refuse => String::new(),
+            Action::Pass | Action::Ignore | Action::Unsupported(_) | Action::Refuse => {
+                String::new()
+            }
             Action::Append(c) => {
                 self.preedit.push(c);
                 String::new()
