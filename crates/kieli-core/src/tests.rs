@@ -472,37 +472,100 @@ enum Step {
     Commit,
 }
 
-/// 並びを作る手順。キーは `Event` の形を全部入れ(ファンクションキーは代表だけ)、文字は全角になる英字・かな・制御文字を入れる。
-const STEPS: [Step; 27] = [
-    Step::Key(Event::Char('a')),
-    Step::Key(Event::Char('あ')),
-    Step::Key(Event::Char('\t')),
-    Step::Key(Event::Backspace),
-    Step::Key(Event::Commit),
-    Step::Key(Event::Cancel),
-    Step::Key(Event::Space),
-    Step::Key(Event::Left),
-    Step::Key(Event::Right),
-    Step::Key(Event::Home),
-    Step::Key(Event::End),
-    Step::Key(Event::Up),
-    Step::Key(Event::Down),
-    Step::Key(Event::Tab),
-    Step::Key(Event::ToggleMode),
-    Step::Key(Event::SetMode(InputMode::Hiragana)),
-    Step::Key(Event::SetMode(InputMode::Direct)),
-    Step::Key(Event::Delete),
-    Step::Key(Event::PageUp),
-    Step::Key(Event::PageDown),
-    // ファンクションキーは、取っておく番号と、取っておかない番号の代表を 1 つずつ。
-    Step::Key(Event::Function(6)),
-    Step::Key(Event::Function(1)),
-    Step::Key(Event::Other),
+/// キーの形を全部(ファンクションキーは、取っておく番号と取っておかない番号の代表を 1 つずつ)。
+/// 文字は、全角になる英字・かな・制御文字を入れる。
+const ALL_KEYS: [Event; 23] = [
+    Event::Char('a'),
+    Event::Char('あ'),
+    Event::Char('\t'),
+    Event::Backspace,
+    Event::Commit,
+    Event::Cancel,
+    Event::Space,
+    Event::Left,
+    Event::Right,
+    Event::Home,
+    Event::End,
+    Event::Delete,
+    Event::Up,
+    Event::Down,
+    Event::Tab,
+    Event::PageUp,
+    Event::PageDown,
+    Event::Function(6),
+    Event::Function(1),
+    Event::ToggleMode,
+    Event::SetMode(InputMode::Hiragana),
+    Event::SetMode(InputMode::Direct),
+    Event::Other,
+];
+
+/// 今は同じ動きをするキーの組と、その代表。食い違いのテストは、組のキーを代表だけで試す。
+/// 組のキーが代表と同じ動きをすることは、`grouped_keys_behave_like_their_representative` が見張る。
+///
+/// 動きが分かれたら(たとえば Delete に本物の動きを入れたら)、この表からキーを外して、食い違いのテストへ戻す。
+const KEY_GROUPS: [(Event, &[Event]); 3] = [
+    (
+        Event::Left,
+        &[Event::Right, Event::Home, Event::End, Event::Delete],
+    ),
+    (
+        Event::Up,
+        &[Event::Down, Event::Tab, Event::PageUp, Event::PageDown],
+    ),
+    // 取っておかないファンクションキーと、制御文字の文字は、Kieli が使わないキーと同じに扱う。
+    // F6 は、未確定文字が無いときの Space(U+3000 を確定する)と動きが違うので、Space にまとめない。
+    (Event::Other, &[Event::Function(1), Event::Char('\t')]),
+];
+
+fn is_grouped(event: Event) -> bool {
+    KEY_GROUPS
+        .iter()
+        .any(|(_, members)| members.contains(&event))
+}
+
+/// 接続層が呼ぶ操作の手順。
+const OPERATIONS: [Step; 4] = [
     Step::DirectField(true),
     Step::DirectField(false),
     Step::Cancel,
     Step::Commit,
 ];
+
+/// キーを全部使う手順(見張りのテストの、始めの状態を作るため)。
+fn all_steps() -> Vec<Step> {
+    ALL_KEYS
+        .into_iter()
+        .map(Step::Key)
+        .chain(OPERATIONS)
+        .collect()
+}
+
+/// 組のキーを代表だけにした手順(食い違いのテストのため)。
+fn representative_steps() -> Vec<Step> {
+    ALL_KEYS
+        .into_iter()
+        .filter(|&event| !is_grouped(event))
+        .map(Step::Key)
+        .chain(OPERATIONS)
+        .collect()
+}
+
+/// 接続層が呼ぶ操作を行う。
+fn apply_operation(session: &Session, step: Step) -> Session {
+    let mut next = session.clone();
+    match step {
+        Step::Key(event) => {
+            next.handle(event);
+        }
+        Step::DirectField(on) => next.set_direct_field(on),
+        Step::Cancel => next.cancel(),
+        Step::Commit => {
+            next.commit();
+        }
+    }
+    next
+}
 
 /// キーのイベントを 1 つ処理し、決まりが守られていることを確かめる。
 fn check_key(session: &Session, event: Event, max_preedit_bytes: usize) -> Session {
@@ -551,33 +614,20 @@ fn check_key(session: &Session, event: Event, max_preedit_bytes: usize) -> Sessi
 /// 長さ `depth` までの手順の並びを全部試す。確かめたキーのイベントの数を返す。
 /// `start` は、上限を `max_preedit_bytes` にして作ったセッション。
 fn check_all_sequences(start: &Session, max_preedit_bytes: usize, depth: usize) -> usize {
+    let steps = representative_steps();
     let mut checked = 0;
     let mut stack: Vec<(Session, usize)> = Vec::from([(start.clone(), 0)]);
     while let Some((session, len)) = stack.pop() {
         if len == depth {
             continue;
         }
-        for step in STEPS {
+        for &step in &steps {
             let next = match step {
                 Step::Key(event) => {
                     checked += 1;
                     check_key(&session, event, max_preedit_bytes)
                 }
-                Step::DirectField(on) => {
-                    let mut next = session.clone();
-                    next.set_direct_field(on);
-                    next
-                }
-                Step::Cancel => {
-                    let mut next = session.clone();
-                    next.cancel();
-                    next
-                }
-                Step::Commit => {
-                    let mut next = session.clone();
-                    next.commit();
-                    next
-                }
+                _ => apply_operation(&session, step),
             };
             stack.push((next, len + 1));
         }
@@ -585,26 +635,101 @@ fn check_all_sequences(start: &Session, max_preedit_bytes: usize, depth: usize) 
     checked
 }
 
+/// 長さ `depth` までの手順(キーを全部使う)でたどれる状態を、全部集める(同じ状態も重ねて数える)。
+fn reachable_states(start: &Session, depth: usize) -> Vec<Session> {
+    let steps = all_steps();
+    let mut states = Vec::from([start.clone()]);
+    let mut frontier = Vec::from([start.clone()]);
+    for _ in 0..depth {
+        let mut next_frontier = Vec::new();
+        for session in &frontier {
+            for &step in &steps {
+                next_frontier.push(apply_operation(session, step));
+            }
+        }
+        states.extend(next_frontier.iter().cloned());
+        frontier = next_frontier;
+    }
+    states
+}
+
+/// 見張りのテストの、始めの状態を作る手順の長さ。
+const GROUP_CHECK_DEPTH: usize = 3;
+
+/// 上限は、全角の英字 2 文字(6 バイト)が入り、3 文字目で越える値にする。
+const TEST_MAX_PREEDIT_BYTES: usize = 7;
+
+fn starts() -> [Session; 2] {
+    [InputMode::Hiragana, InputMode::Direct].map(|mode| {
+        Session::new(Config {
+            mode,
+            max_preedit_bytes: TEST_MAX_PREEDIT_BYTES,
+        })
+    })
+}
+
+#[test]
+fn grouped_keys_behave_like_their_representative() {
+    // 食い違いのテストが組のキーを代表だけで試してよいことを見張る。動きが分かれたら、
+    // KEY_GROUPS からキーを外して、食い違いのテストへ戻す。
+    let mut compared = 0;
+    for start in starts() {
+        let states = reachable_states(&start, GROUP_CHECK_DEPTH);
+        // 手順が 27 種類なので、1 + 27 + 27^2 + 27^3 = 20,440 の状態(同じ状態も重ねて数える)。
+        assert_eq!(states.len(), 20_440);
+        for state in &states {
+            for (representative, members) in KEY_GROUPS {
+                let mut expected_state = state.clone();
+                let expected = expected_state.handle(representative);
+                for &member in members {
+                    assert_eq!(
+                        state.would_consume(&member),
+                        state.would_consume(&representative),
+                        "{state:?} で {member:?} と {representative:?}"
+                    );
+                    let mut actual_state = state.clone();
+                    let actual = actual_state.handle(member);
+                    assert_eq!(
+                        actual, expected,
+                        "{state:?} で {member:?} と {representative:?}"
+                    );
+                    // 未確定文字・カーソル・mode()・effective_mode()・直接入力の欄を含め、状態の全体を比べる。
+                    assert_eq!(
+                        actual_state, expected_state,
+                        "{state:?} で {member:?} と {representative:?}"
+                    );
+                    assert_eq!(actual_state.preedit(), expected_state.preedit());
+                    assert_eq!(
+                        actual_state.effective_mode(),
+                        expected_state.effective_mode()
+                    );
+                    compared += 1;
+                }
+            }
+        }
+    }
+    // 組のキーは 10 個なので、20,440 × 10 × 2 = 408,800。
+    assert_eq!(compared, 408_800);
+}
+
 /// 並びの長さ。
 ///
 /// 長さ 5 あれば、上限まで文字を入れ(2 手)、越える文字を入れ(1 手)、その後にキーを入れる(1 手)並びに、
 /// 直接入力の欄の出入りを 1 つ挟む形まで試せる。
 ///
-/// 時間(debug ビルド、1 コア):手順が 22 種類のとき(2026-10-25)は約 3 秒。27 種類に増やした後
-/// (2026-10-26)は、cargo test の全体で 8.96〜10.40 秒(3 回)。長さ 6 は、その 27 倍になる見込み(推測)。
+/// 手順が 27 種類のとき(2026-10-26)は、cargo test の全体で 8.96〜10.40 秒かかったので、今は同じ動きの
+/// キーを代表 1 つにまとめている(`KEY_GROUPS`)。
 const DEPTH: usize = 5;
 
 #[test]
 fn would_consume_and_handle_agree_on_every_short_sequence() {
-    for mode in [InputMode::Hiragana, InputMode::Direct] {
-        // 上限は、全角の英字 2 文字(6 バイト)が入り、3 文字目で越える値にする。
-        let start = Session::new(Config {
-            mode,
-            max_preedit_bytes: 7,
-        });
-        // 並びの長さが 1〜5 で、手順が 27 種類(うちキーのイベントが 23 種類)。
-        // 長さ k の並びの最後の手順がキーのイベントになる数は 23 × 27^(k-1) なので、
-        // 23 × (1 + 27 + 27^2 + 27^3 + 27^4) = 12,693,263。
-        assert_eq!(check_all_sequences(&start, 7, DEPTH), 12_693_263);
+    for start in starts() {
+        // 並びの長さが 1〜5 で、手順が 17 種類(うちキーのイベントが 13 種類)。
+        // 長さ k の並びの最後の手順がキーのイベントになる数は 13 × 17^(k-1) なので、
+        // 13 × (1 + 17 + 17^2 + 17^3 + 17^4) = 1,153,633。
+        assert_eq!(
+            check_all_sequences(&start, TEST_MAX_PREEDIT_BYTES, DEPTH),
+            1_153_633
+        );
     }
 }
