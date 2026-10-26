@@ -6,7 +6,18 @@
 
 ## 1. 作業の課題の受け入れ条件
 
-課題の受け入れ条件は、課題の本文を読んでいないので、運用者の指示文(2026-10-25・2026-10-26)に書かれた作業の範囲から並べました。課題の本文と違えば、直します。
+課題の受け入れ条件は、次の 4 つです(課題の本文から。2026-10-26 にレビューの側が読んで伝えたもの)。
+
+| 受け入れ条件 | 確かめたもの | 状態 |
+| --- | --- | --- |
+| 設計文書の規則(n・nn・n'、促音、小書き文字など)が、ホストの自動テストで確かめられている | `cargo test` の kieli-core のテスト。規則ごとの対応は 2.1 の表 | 確かめた |
+| kieli-core が no_std + alloc でビルドでき、Wayland・OS 固有の型に依存していない(機械で確かめる) | `tools/check.sh` の「no_std」(std の無い `x86_64-unknown-none` でビルド)と「kieli-core の依存」(`tools/core-deps.allow` の一覧の中だけで、Wayland・OS・描画の crate が入ったら落ちる)。どちらも `tools/check-sabotage.sh` で、壊したときに落ちることを確かめている | 確かめた |
+| kieli-cli で、ローマ字の入力・編集・確定・取消ができる | 見本(`examples/basic.txt`)と `the_basic_example_gives_the_expected_output`、kieli-cli のテスト、`docs/try-kieli-cli.md` の手順 | 確かめた(運用者が手順で試してから完了とする) |
+| Kieli のリポジトリの検査と CI が通る | `tools/check.sh`、`tools/check-sabotage.sh`、GitHub Actions の CI | 確かめた |
+
+### 1.1 作業の範囲ごとの詳しい対応
+
+運用者の指示文(2026-10-25・2026-10-26)に書かれた作業の範囲ごとの対応です。
 
 | 条件 | 確かめたもの | 状態 |
 | --- | --- | --- |
@@ -18,7 +29,7 @@
 | 保留のローマ字の Backspace | `backspace_deletes_a_pending_letter_first`、見本の 10 | 確かめた |
 | kieli-cli を 1 行ずつ読む形(設計文書の 9 の順 4) | `quoted_text_becomes_characters`、`special_keys`、`errors`、`an_error_line_does_nothing_and_does_not_show_the_input`、`a_session_from_typing_to_commit`、`every_kind_of_result_is_shown`、`leave_and_fields`、`the_shortcut_commits_and_passes`、`comment_lines_are_skipped`、`an_error_line_makes_the_exit_status_fail_and_the_rest_runs`、`a_bad_option_is_refused` | 確かめた |
 | 運用者が試す手順と、見本の出力の確かめ(設計文書の 9 の順 6) | `docs/try-kieli-cli.md`、`the_basic_example_gives_the_expected_output` | 確かめた |
-| `tools/check.sh` と CI が通る | `tools/check.sh`、`tools/check-sabotage.sh`、GitHub Actions の CI | push の後に CI を確かめる |
+| `tools/check.sh` と CI が通る | `tools/check.sh`、`tools/check-sabotage.sh`、GitHub Actions の CI | 確かめた |
 
 ## 2. 設計文書の 9 の、第 1 段階の完了条件
 
@@ -54,12 +65,11 @@
 
 | 条件 | 確かめたもの | 状態 |
 | --- | --- | --- |
-| `tools/check.sh` と CI が通る | `tools/check.sh`(fmt・clippy・test・rustdoc・no_std・依存)、`tools/check-sabotage.sh`(各検査が壊したときに落ちる)、GitHub Actions の CI | push の後に CI を確かめる |
+| `tools/check.sh` と CI が通る | `tools/check.sh`(fmt・clippy・test・rustdoc・no_std・依存)、`tools/check-sabotage.sh`(各検査が壊したときに落ちる)、GitHub Actions の CI | 確かめた |
 | kieli-cli で、ローマ字からひらがなへの変換と、編集(Backspace)・確定・取消が動く(実行の記録) | 見本の全体と `examples/basic.expected`、`the_basic_example_gives_the_expected_output` | 確かめた |
 | kieli-core が std の無い target でビルドでき、依存が一覧の中だけ | `tools/check.sh` の「no_std」と「kieli-core の依存」 | 確かめた |
 
 ## 3. 足りない所
 
-- 課題の本文の受け入れ条件は、読んでいないので、1 の表は指示文から並べたものです。
 - 第 2 段階に残すもの(上の表の「第 2 段階で確かめる」):Kieli が使わないキーを確定してから渡すときの、アプリでの順番と編集の結果、Wayland の deactivate での取り消し、content_type から欄の種類を決めること。操作感・キーの繰り返しも、第 2 段階で確かめる(設計文書の 10.3)。
 - 運用者が自分で kieli-cli を試し、見本の出力を見ること(`docs/try-kieli-cli.md`)は、運用者の側で行う。
