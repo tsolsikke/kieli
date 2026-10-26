@@ -1,10 +1,9 @@
 //! 入力セッション(1 つの入力先に対応する状態)。
 
 use alloc::string::String;
-use core::mem;
 use core::ops::Range;
 
-use crate::width::to_full_width;
+use crate::composition::Composition;
 use crate::{Event, InputMode};
 
 /// 起動したときのモード。その後は、接続層が利用者の選んだモードを持ち続ける(設計文書の 2.3)。
@@ -117,7 +116,7 @@ pub struct Session {
     max_preedit_bytes: usize,
     /// 利用者が選んだモード。直接入力の欄でも上書きしない。
     mode: InputMode,
-    preedit: String,
+    composition: Composition,
     sensitive: bool,
     direct_field: bool,
 }
@@ -176,7 +175,7 @@ impl Session {
         Self {
             max_preedit_bytes: config.max_preedit_bytes,
             mode: config.mode,
-            preedit: String::new(),
+            composition: Composition::default(),
             sensitive: false,
             direct_field: false,
         }
@@ -198,23 +197,24 @@ impl Session {
             kind: action.kind(),
             consumed: action.consumed(),
             commit,
-            preedit: self.preedit.clone(),
+            preedit: String::from(self.composition.text()),
         }
     }
 
     /// 未確定文字を捨てる。入力先を失ったときなどに、接続層が呼ぶ。
     pub fn cancel(&mut self) {
-        self.preedit.clear();
+        self.composition.clear();
     }
 
-    /// 未確定文字を確定し、確定した文字を返す(無ければ空)。Enter と同じ確定の処理を使う。
+    /// 未確定文字を確定し、確定した文字を返す(無ければ空)。Enter と同じ確定の処理を使う
+    /// (保留の末尾の `n` は「ん」、ほかの保留は英字として確定する)。
     pub fn commit(&mut self) -> String {
-        mem::take(&mut self.preedit)
+        self.composition.take()
     }
 
     /// 今の未確定文字。
     pub fn preedit(&self) -> Preedit<'_> {
-        Preedit::at_end(&self.preedit)
+        Preedit::at_end(self.composition.text())
     }
 
     /// 利用者が選んだ入力モード。直接入力の欄の間も、この値は変わらない。
@@ -233,7 +233,7 @@ impl Session {
 
     /// 未確定文字があるか。
     pub fn is_composing(&self) -> bool {
-        !self.preedit.is_empty()
+        !self.composition.is_empty()
     }
 
     /// 残さない入力か(`sensitive_data` の欄など)を設定する。
@@ -304,12 +304,12 @@ impl Session {
         }
     }
 
-    /// 未確定文字に文字を足す。足した後の全体が上限を越えるなら、受け付けない。
-    ///
-    /// 未確定文字に残る英字・数字・記号は全角にする(大文字も、打ったまま全角で残す。設計文書の 1.6)。
+    /// 未確定文字に文字を足す。ローマ字で変換した後の未確定文字の全体が上限を越えるなら、受け付けない
+    /// (設計文書の 5)。
     fn plan_append(&self, c: char) -> Action {
-        let c = to_full_width(c);
-        if self.preedit.len() + c.len_utf8() <= self.max_preedit_bytes {
+        let mut next = self.composition.clone();
+        next.push(c);
+        if next.text().len() <= self.max_preedit_bytes {
             Action::Append(c)
         } else {
             Action::Refuse
@@ -323,12 +323,11 @@ impl Session {
                 String::new()
             }
             Action::Append(c) => {
-                self.preedit.push(c);
+                self.composition.push(c);
                 String::new()
             }
-            // 保留のローマ字はまだ無いので、表示の最後の 1 文字(Unicode のスカラー値 1 つ)を消す。
             Action::DeleteLast => {
-                self.preedit.pop();
+                self.composition.backspace();
                 String::new()
             }
             Action::CommitPreedit | Action::CommitThenPass => self.commit(),

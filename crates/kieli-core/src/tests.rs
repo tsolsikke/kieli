@@ -127,7 +127,7 @@ fn keys_without_a_preedit_go_to_the_application() {
 #[test]
 fn characters_and_space_in_the_direct_mode_go_to_the_application() {
     let mut session = direct();
-    assert_eq!(session.handle(Event::Char('a')), passed());
+    assert_eq!(session.handle(Event::Char('A')), passed());
     assert_eq!(session.handle(Event::Space), passed());
     assert!(!session.is_composing());
 }
@@ -157,8 +157,9 @@ fn a_character_in_the_hiragana_mode_starts_a_preedit() {
 fn literal_characters_are_full_width_and_capitals_stay_capitals() {
     // 決定:未確定文字に残る英字・数字・記号は全角。大文字は打ったまま残す(設計文書の 1.6)。
     let mut session = hiragana();
-    type_chars(&mut session, "aZ0!~");
-    assert_eq!(session.preedit().text(), "ａＺ０！～");
+    // 英小文字はローマ字として照らすので、テーブルに無い綴りの文字で確かめる。
+    type_chars(&mut session, "qZ0!~");
+    assert_eq!(session.preedit().text(), "ｑＺ０！～");
 }
 
 #[test]
@@ -174,10 +175,10 @@ fn a_non_ascii_character_keeps_its_form() {
 fn backspace_deletes_one_scalar_value() {
     // 決定:保留のローマ字が無ければ、表示の最後の 1 文字(Unicode のスカラー値 1 つ)を消す。
     let mut session = hiragana();
-    type_chars(&mut session, "a𠮷");
+    type_chars(&mut session, "A𠮷");
     assert_eq!(
         session.handle(Event::Backspace),
-        outcome(OutcomeKind::Updated, true, "", "ａ")
+        outcome(OutcomeKind::Updated, true, "", "Ａ")
     );
     assert_eq!(
         session.handle(Event::Backspace),
@@ -191,10 +192,10 @@ fn backspace_deletes_one_scalar_value() {
 #[test]
 fn enter_commits_the_preedit() {
     let mut session = hiragana();
-    type_chars(&mut session, "ab");
+    type_chars(&mut session, "AB");
     assert_eq!(
         session.handle(Event::Commit),
-        outcome(OutcomeKind::Committed, true, "ａｂ", "")
+        outcome(OutcomeKind::Committed, true, "ＡＢ", "")
     );
     assert!(!session.is_composing());
 }
@@ -202,7 +203,7 @@ fn enter_commits_the_preedit() {
 #[test]
 fn escape_cancels_the_preedit() {
     let mut session = hiragana();
-    type_chars(&mut session, "ab");
+    type_chars(&mut session, "AB");
     assert_eq!(
         session.handle(Event::Cancel),
         outcome(OutcomeKind::Canceled, true, "", "")
@@ -217,10 +218,10 @@ fn reserved_keys_keep_the_preedit_and_report_unsupported() {
     // 未確定文字を残す(設計文書の 2.3)。
     for (event, feature) in RESERVED_KEYS {
         let mut session = hiragana();
-        type_chars(&mut session, "a");
+        type_chars(&mut session, "A");
         assert_eq!(
             session.handle(event),
-            outcome(OutcomeKind::Unsupported(feature), true, "", "ａ"),
+            outcome(OutcomeKind::Unsupported(feature), true, "", "Ａ"),
             "{event:?}"
         );
     }
@@ -231,10 +232,10 @@ fn an_unused_key_commits_and_goes_to_the_application() {
     // 決定:Kieli が使わないキーは、確定してからアプリへ渡す(consumed が false で、commit が空でない)。
     // アプリでの順番と編集の結果は、第 2 段階で確かめる(設計文書の 2.3)。
     let mut session = hiragana();
-    type_chars(&mut session, "a");
+    type_chars(&mut session, "A");
     assert_eq!(
         session.handle(Event::Other),
-        outcome(OutcomeKind::Committed, false, "ａ", "")
+        outcome(OutcomeKind::Committed, false, "Ａ", "")
     );
 }
 
@@ -244,10 +245,10 @@ fn other_function_keys_are_treated_as_unused_keys() {
     // (設計文書の 2.3)。
     for event in UNUSED_FUNCTION_KEYS {
         let mut session = hiragana();
-        type_chars(&mut session, "a");
+        type_chars(&mut session, "A");
         assert_eq!(
             session.handle(event),
-            outcome(OutcomeKind::Committed, false, "ａ", ""),
+            outcome(OutcomeKind::Committed, false, "Ａ", ""),
             "{event:?}"
         );
     }
@@ -256,7 +257,7 @@ fn other_function_keys_are_treated_as_unused_keys() {
 #[test]
 fn a_control_character_while_composing_is_treated_as_an_unused_key() {
     let mut session = hiragana();
-    type_chars(&mut session, "a");
+    type_chars(&mut session, "A");
     assert_eq!(
         session.clone().handle(Event::Char('\t')),
         session.handle(Event::Other)
@@ -267,10 +268,10 @@ fn a_control_character_while_composing_is_treated_as_an_unused_key() {
 fn cancel_and_commit_are_available_without_a_key() {
     // 決定:取り消しと確定は別の操作として持ち、入力先を失ったときに接続層が選ぶ(設計文書の 3)。
     let mut session = hiragana();
-    type_chars(&mut session, "ab");
-    assert_eq!(session.commit(), "ａｂ");
+    type_chars(&mut session, "AB");
+    assert_eq!(session.commit(), "ＡＢ");
     assert_eq!(session.commit(), "");
-    type_chars(&mut session, "c");
+    type_chars(&mut session, "C");
     session.cancel();
     assert!(!session.is_composing());
 }
@@ -279,9 +280,9 @@ fn cancel_and_commit_are_available_without_a_key() {
 fn the_cursor_is_at_the_end_of_the_preedit() {
     let mut session = hiragana();
     assert_eq!(session.preedit().cursor(), 0..0);
-    type_chars(&mut session, "aあ𠮷");
+    type_chars(&mut session, "Aあ𠮷");
     let preedit = session.preedit();
-    assert_eq!(preedit.text(), "ａあ𠮷");
+    assert_eq!(preedit.text(), "Ａあ𠮷");
     assert_eq!(preedit.cursor(), 10..10);
 }
 
@@ -289,7 +290,7 @@ fn the_cursor_is_at_the_end_of_the_preedit() {
 fn sessions_do_not_share_state() {
     let mut a = hiragana();
     let b = hiragana();
-    type_chars(&mut a, "a");
+    type_chars(&mut a, "A");
     a.handle(Event::ToggleMode);
     a.set_sensitive(true);
     a.set_direct_field(true);
@@ -305,8 +306,8 @@ fn the_sensitive_flag_is_kept_and_does_not_change_the_conversion() {
     let mut session = hiragana();
     session.set_sensitive(true);
     assert!(session.is_sensitive());
-    type_chars(&mut session, "a");
-    assert_eq!(session.preedit().text(), "ａ");
+    type_chars(&mut session, "A");
+    assert_eq!(session.preedit().text(), "Ａ");
 }
 
 // ---- 入力モード
@@ -328,7 +329,7 @@ fn a_mode_key_for_the_current_mode_is_consumed_and_changes_nothing() {
     // 決定:今と同じモードを指すモードのキーは、消費して何もしない(確定しない、状態を変えない)。
     // 未確定文字が無いときも同じ(設計文書の 2.3)。
     let mut composing = hiragana();
-    type_chars(&mut composing, "a");
+    type_chars(&mut composing, "A");
     for mut session in [composing, hiragana()] {
         let before = session.clone();
         let preedit = String::from(before.preedit().text());
@@ -351,10 +352,10 @@ fn the_mode_switch_commits_the_preedit_first() {
     // (設計文書の 2.3)。
     for event in [Event::ToggleMode, Event::SetMode(InputMode::Direct)] {
         let mut session = hiragana();
-        type_chars(&mut session, "a");
+        type_chars(&mut session, "A");
         assert_eq!(
             session.handle(event),
-            outcome(OutcomeKind::ModeChanged, true, "ａ", ""),
+            outcome(OutcomeKind::ModeChanged, true, "Ａ", ""),
             "{event:?}"
         );
         assert_eq!(session.mode(), InputMode::Direct);
@@ -371,15 +372,15 @@ fn a_direct_field_passes_every_key_and_keeps_the_chosen_mode() {
     session.set_direct_field(true);
     assert_eq!(session.mode(), InputMode::Hiragana);
     assert_eq!(session.effective_mode(), InputMode::Direct);
-    assert_eq!(session.handle(Event::Char('a')), passed());
+    assert_eq!(session.handle(Event::Char('A')), passed());
     assert_eq!(session.handle(Event::Space), passed());
     assert!(!session.is_composing());
 
     session.set_direct_field(false);
     assert_eq!(session.effective_mode(), InputMode::Hiragana);
     assert_eq!(
-        session.handle(Event::Char('a')),
-        outcome(OutcomeKind::Updated, true, "", "ａ")
+        session.handle(Event::Char('A')),
+        outcome(OutcomeKind::Updated, true, "", "Ａ")
     );
 }
 
@@ -387,7 +388,7 @@ fn a_direct_field_passes_every_key_and_keeps_the_chosen_mode() {
 fn entering_a_direct_field_does_not_commit_the_preedit() {
     // 決定:守る欄へ移るとき、前の未確定文字をそこへ確定しない(設計文書の 6)。
     let mut session = hiragana();
-    type_chars(&mut session, "ab");
+    type_chars(&mut session, "AB");
     session.set_direct_field(true);
     assert!(!session.is_composing());
     assert_eq!(session.handle(Event::Commit), passed());
@@ -419,7 +420,7 @@ fn the_default_limit_is_1024_bytes() {
     let mut session = hiragana();
     // 全角の英字は 3 バイトなので、341 文字(1,023 バイト)まで入る。
     for _ in 0..400 {
-        session.handle(Event::Char('a'));
+        session.handle(Event::Char('A'));
     }
     assert_eq!(session.preedit().text().len(), 1023);
 }
@@ -429,11 +430,11 @@ fn a_character_over_the_limit_is_refused_without_any_change() {
     // 決定:越える入力は受け付けず、「上限を越えた」を返し、その入力による変更は丸ごと取り消す。
     // 知らせに、入力した文字を入れない(設計文書の 5)。
     let mut session = limited(7);
-    type_chars(&mut session, "ab");
+    type_chars(&mut session, "AB");
     let before = session.clone();
     assert_eq!(
-        session.handle(Event::Char('c')),
-        outcome(OutcomeKind::OverLimit, true, "", "ａｂ")
+        session.handle(Event::Char('C')),
+        outcome(OutcomeKind::OverLimit, true, "", "ＡＢ")
     );
     assert_eq!(session, before);
     // 1 バイトの文字も、全角にした後の長さで判定する(半角なら 7 バイトに収まる)。
@@ -448,8 +449,8 @@ fn editing_keys_work_after_the_limit() {
     // 決定:上限に達した後も、Backspace・Enter・Esc・モードの切り替えは使える(設計文書の 5)。
     let full = || {
         let mut session = limited(6);
-        type_chars(&mut session, "abc");
-        assert_eq!(session.preedit().text(), "ａｂ");
+        type_chars(&mut session, "ABC");
+        assert_eq!(session.preedit().text(), "ＡＢ");
         session
     };
     assert_eq!(full().handle(Event::Backspace).kind, OutcomeKind::Updated);
@@ -473,9 +474,11 @@ enum Step {
 }
 
 /// キーの形を全部(ファンクションキーは、取っておく番号と取っておかない番号の代表を 1 つずつ)。
-/// 文字は、全角になる英字・かな・制御文字を入れる。
-const ALL_KEYS: [Event; 23] = [
+/// 文字は、ひらがなになる英字(a)、保留になる英字(k・n。促音・ん・未定義の綴りもできる)、かな、制御文字を入れる。
+const ALL_KEYS: [Event; 25] = [
     Event::Char('a'),
+    Event::Char('k'),
+    Event::Char('n'),
     Event::Char('あ'),
     Event::Char('\t'),
     Event::Backspace,
@@ -675,8 +678,8 @@ fn grouped_keys_behave_like_their_representative() {
     let mut compared = 0;
     for start in starts() {
         let states = reachable_states(&start, GROUP_CHECK_DEPTH);
-        // 手順が 27 種類なので、1 + 27 + 27^2 + 27^3 = 20,440 の状態(同じ状態も重ねて数える)。
-        assert_eq!(states.len(), 20_440);
+        // 手順が 29 種類なので、1 + 29 + 29^2 + 29^3 = 25,260 の状態(同じ状態も重ねて数える)。
+        assert_eq!(states.len(), 25_260);
         for state in &states {
             for (representative, members) in KEY_GROUPS {
                 let mut expected_state = state.clone();
@@ -708,8 +711,8 @@ fn grouped_keys_behave_like_their_representative() {
             }
         }
     }
-    // 組のキーは 10 個なので、20,440 × 10 × 2 = 408,800。
-    assert_eq!(compared, 408_800);
+    // 組のキーは 10 個なので、25,260 × 10 × 2 = 505,200。
+    assert_eq!(compared, 505_200);
 }
 
 /// 並びの長さ。
@@ -724,12 +727,12 @@ const DEPTH: usize = 5;
 #[test]
 fn would_consume_and_handle_agree_on_every_short_sequence() {
     for start in starts() {
-        // 並びの長さが 1〜5 で、手順が 17 種類(うちキーのイベントが 13 種類)。
-        // 長さ k の並びの最後の手順がキーのイベントになる数は 13 × 17^(k-1) なので、
-        // 13 × (1 + 17 + 17^2 + 17^3 + 17^4) = 1,153,633。
+        // 並びの長さが 1〜5 で、手順が 19 種類(うちキーのイベントが 15 種類)。
+        // 長さ k の並びの最後の手順がキーのイベントになる数は 15 × 19^(k-1) なので、
+        // 15 × (1 + 19 + 19^2 + 19^3 + 19^4) = 2,063,415。
         assert_eq!(
             check_all_sequences(&start, TEST_MAX_PREEDIT_BYTES, DEPTH),
-            1_153_633
+            2_063_415
         );
     }
 }

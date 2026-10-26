@@ -3,7 +3,7 @@
 /// 入力モード。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
-    /// ローマ字をひらがなにする(今は、テーブルが無いので文字をそのまま未確定文字に入れる)。
+    /// ローマ字をひらがなにする。
     Hiragana,
     /// 変換しない。キーをアプリへ渡す。
     Direct,
