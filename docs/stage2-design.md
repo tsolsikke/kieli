@@ -110,7 +110,7 @@ grab の `key` イベント(serial、時刻、evdev のキーの番号、押し�
 ### 2.4 virtual-keyboard の keymap
 
 - virtual-keyboard の `key` を送る前に、keymap が要る [VK] 54〜68 行。grab で届いた keymap の中身を、Kieli が自分で作った memfd に書き、その fd を送る。
-- grab で届いた fd を、そのまま送り返さない。Smithay 0.7.0 は、grab へは一時ファイルで keymap を渡す [zreq] の「一時ファイル」の行。テスト用の IME は届いた fd をそのまま送り返すが [test-ime] 238〜256 行、ZeikOS では、コンポジタが一時ファイルの fd を mmap すると EBADF になる [zreq] の「クライアントから受け取った keymap の fd の mmap」の行。
+- grab で届いた fd を、そのまま送り返さない。Smithay 0.7.0 は、grab へは一時ファイルで keymap を渡す [zreq] の「一時ファイル」の行。テスト用の IME は届いた fd をそのまま送り返すが [test-ime] 238〜256 行、ZeikOS では、コンポジタが memfd でない fd(一時ファイルなど)を mmap すると EBADF になるおそれがある(推測。出典は [zreq] の「クライアントから受け取った keymap の fd の mmap」の行だが、2026-10-12 の ZeikOS で確かめた古い値で、今の ZeikOS では確かめていない。受け取った memfd の mmap が動くことは、運用者の指示文(2026-11-04)で分かっている)。Kieli は、自分の memfd に書いて送れば、どちらの場合でも当たらない。
 - memfd へは、`write()` ではなく、ftruncate で大きさを決めてから mmap(PROT_WRITE、MAP_SHARED)して書く形を既定にする(Linux でも ZeikOS でも同じ形。8.1)。
 
 ## 3. kieli-core との境目
@@ -249,7 +249,7 @@ Seinas の側の判定 [ADR4] 4 の「Seinas との統合」は、「テスト�
 | C5 | フォーカスの切り替え(Alt+Tab・最小化・閉じる)で、未確定文字が取り消され、前のアプリへの応答が新しいアプリへ入らない。入力モードは引き継がれる | 同上(確認項目 1・3) |
 | C6 | 確定してから渡す形(未確定文字があるときの Ctrl の組み合わせ)で、アプリに確定が先に入り、その後にキーが効く | 同上。`docs/design.md` の 2.3 の決定の条件 |
 | C7 | 接続断・緊急解除で、アプリに未確定文字や押されたキーが残らず、次のキーが直接届く。Kieli は決めた形(9 の論点 5)で終わる | 同上(確認項目 5) |
-| C8 | パスワードの欄(content_type)で、直接入力になる。ふつうの欄に戻ると、元のモードで変換する | 自動(テスト用のアプリに content_type を設定する口が要る。Seinas の側の変更になるので、運用者と相談) |
+| C8 | パスワードの欄(content_type)で、直接入力になる。ふつうの欄に戻ると、元のモードで変換する | 自動。Seinas の側の口が要る(テスト用のアプリに content_type を設定する口。Seinas の課題として、2-3 より前に起票予定) |
 | C9 | 押しっぱなし:Kieli が消費したキーの繰り返し(9 の論点 3 で決めた形)と、戻したキーのアプリでの繰り返しが、それぞれ二重にならない | 入れ子での手の確かめ |
 | C10 | 操作感:キーを押してから、アプリに未確定文字が出るまでの時間を測る(Seinas → Kieli → Seinas の 1 往復の遅れ [ADR4] 1.2 の「費用」) | ログの時刻か、テストで測る。基準の値は運用者が決める |
 | C11 | keymap の変更(入れ子で親の keymap に置き換わる場面)で、Kieli が新しい keymap で読む | Smithay の 8a270232 を Seinas が取り込んだ後に確かめる [patches] |
@@ -282,10 +282,12 @@ Seinas の側の判定 [ADR4] 4 の「Seinas との統合」は、「テスト�
 
 - 当たる所:virtual-keyboard の keymap を、Kieli が自分の memfd に書いて送る所(2.4)。Seinas の [zreq] の表でも、memfd への write は「無い」(EBADF)とされている。
 - 避け方:memfd を `memfd_create` で作り、`ftruncate` で大きさを決め、`mmap(PROT_READ|PROT_WRITE, MAP_SHARED)` で書いて `munmap` する形を、Linux でも既定にする。Linux でもこの形で動くので、Linux と ZeikOS で道を分けなくてよい。
-- 既定にできるか:できる。ただし、ZeikOS の memfd には、次の制限もある [zreq] の「共有メモリー」の表。
-  - `ftruncate` は 1 回だけで、32 KiB まで。jp106 の keymap は、libxkbcommon で文字列にすると 65,268 バイト(us は 64,756 バイト。2026-11-04 にこのホストの libxkbcommon で測った。終わりの NUL を含む)で、32 KiB を越える。コンポジタが配る keymap も同じ大きさなので、Kieli だけの問題ではない(ZeikOS の側の上限を上げるか、keymap を小さくする必要がある。Seinas の [zreq] の「新しい課題の候補」の 1)。
-  - memfd は、システム全体で 2 つまで。コンポジタの keymap、クライアントの pool、Kieli の virtual-keyboard の keymap で足りなくなる(同じ)。
-  - keymap を替えるたびに memfd を作り直す(ftruncate を 2 回できないため)。前の memfd は、送った後に閉じる。
+- 既定にできるか:できる。今の ZeikOS の memfd の値(運用者の指示文、2026-11-04。Seinas の [zreq] の memfd の行は 2026-10-21 の古い値で、直したコミットはまだ push されていない):
+  - memfd は 16 個まで、1 つ 16 MiB、合計 64 MiB。
+  - `ftruncate` は、伸ばすのも縮めるのも受ける。
+  - SCM_RIGHTS で、memfd とパイプの端を運べる。受け取った memfd の mmap は動く(Seinas のタスクバーの wl_shm が、これで動いている)。
+- keymap の大きさ:jp106 の keymap は、libxkbcommon で文字列にすると 65,268 バイト(us は 64,756 バイト。2026-11-04 にこのホストの libxkbcommon で測った。終わりの NUL を含む)。1 つ 16 MiB に収まる。
+- keymap が替わったときは、新しい memfd を作って書き、送った後に前の memfd を閉じる(同じ memfd を書き換えると、Seinas が読んでいる途中のものが変わるおそれがあるため)。
 
 ### 8.2 1 回の sendmsg で運べる fd は 1 つ。受ける前に 2 回目を送ると EAGAIN
 
@@ -304,7 +306,7 @@ Seinas の側の判定 [ADR4] 4 の「Seinas との統合」は、「テスト�
 
 ### 8.4 そのほか
 
-- Smithay 0.7.0 が grab へ渡す keymap の一時ファイルは、ZeikOS では作れない(O_TMPFILE が無い)[zreq] の「一時ファイル」の行。Seinas の側の課題で、Kieli は届いた fd を読むだけ(mmap で読めなければ、read で読む形にしておく)。
+- Smithay 0.7.0 が grab へ渡す keymap の一時ファイルは、ZeikOS では作れないおそれがある(O_TMPFILE が無い。[zreq] の「一時ファイル」の行で、2026-10-12 の ZeikOS で確かめた古い値。今の ZeikOS では確かめていないので推測)。Seinas の側の課題で、Kieli は届いた fd を読むだけ(mmap で読めなければ、read で読む形にしておく)。
 
 ## 9. 運用者が GPT-6 に相談する論点
 
