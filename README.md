@@ -4,7 +4,7 @@ Kieli は、Rust で作る日本語 IME です。既存の IME(Anthy など)の�
 
 ## 今の段階
 
-第 1 段階の途中です。kieli-core で、ローマ字からひらがなへの変換と、編集・確定・取消が動きます(かな漢字変換はまだ無い)。kieli-cli で、1 行ずつ読む形で試せます。設計は `docs/design.md` にあります。第 2 段階(kieli-wayland と Seinas との統合)の設計の案は `docs/stage2-design.md` にあります。
+第 1 段階の途中です。kieli-core で、ローマ字からひらがなへの変換と、編集・確定・取消が動きます(かな漢字変換はまだ無い)。kieli-cli で、1 行ずつ読む形で試せます。設計は `docs/design.md` にあります。第 2 段階(kieli-wayland と Seinas との統合)の設計は `docs/stage2-design.md` にあります。
 
 | 段階 | 内容 | 判定 |
 | --- | --- | --- |
